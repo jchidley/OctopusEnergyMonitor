@@ -8,7 +8,11 @@ app = FastAPI()
 
 origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
-# assumes a suitable web server, e.g. "python -m http.server 9000"
+# run this server with:
+# uvicorn main:app --reload
+# assumes a suitable web server, e.g. "python -m http.server 3000"
+# the web server will be running on port 3000, which needs to match the 'origins' list above
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,7 +23,7 @@ app.add_middleware(
 )
 
 
-@app.get("/")
+@app.get("/startpage")
 async def root():
     octopusData.update(client)
     data = {

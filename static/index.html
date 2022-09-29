@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Octopus Energy Monitor</title>
+        <!-- https://github.com/plotly/plotly.js/tree/master/dist -->
+        <script src="https://cdn.plot.ly/plotly-cartesian-2.11.1.min.js"></script>
+        <script src="main.js"></script>
+    </head>
+
+    <body onload="loadingData()">
+        <h1>Octopus Energy Monitor</h1>
+        <table>
+            <th>missing gas</th>
+            <th>missing electric</th>
+            <th>last gas</th>
+            <th>last electric</th>
+            <tr>
+                <td id="missing_gas"></td>
+                <td id="missing_electric"></td>
+                <td id="recent_gas"></td>
+                <td id="recent_electric"></td>
+            </tr>
+        </table>
+        <br />
+        <table>
+            <th>What</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Cost</th>
+            <tr>
+                <td>Washing Machine</td>
+                <td></td>
+                <td id="WashingMachineEnd"></td>
+                <td></td>
+                <td id="WashingMachineCost"></td>
+            </tr>
+            <tr>
+                <td>Gentle Dishwasher</td>
+                <td id="GentleDishwasherStart"></td>
+                <td></td>
+                <td id="GentleDishwasherCost"></td>
+            </tr>
+            <tr>
+                <td>Eco Dishwasher</td>
+                <td id="EcoDishwasherStart"></td>
+                <td></td>
+                <td id="EcoDishwasherCost"></td>
+            </tr>
+            <tr>
+                <td>Intense Dishwasher</td>
+                <td id="IntenseDishwasherStart"></td>
+                <td></td>
+                <td id="IntenseDishwasherCost"></td>
+            </tr>
+        </table>
+
+        <button type="button" onclick="starttimes()">starttimes</button>
+        <button type="button" onclick="consumption()">consumption</button>
+
+        <div id="WashingMachinePlot"></div>
+        <div id="GentleDishwasherPlot"></div>
+        <div id="EcoDishwasherPlot"></div>
+        <div id="IntenseDishwasherPlot"></div>
+
+        <div id="electricityDailyChart"></div>
+        <div id="electricityRollingChart"></div>
+        <div id="gasDailyChart"></div>
+        <div id="gasRollingChart"></div>
+        <div id="gasConsumptionBinnedChart"></div>
+        <div id="gasConsumption2022BinnedChart"></div>
+    </body>
+</html>
