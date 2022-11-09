@@ -46,7 +46,7 @@ class OctopusData:
     electricityDailyChart: json = None
     electricityRollingChart: json = None
     gasConsumption2022BinnedChart: json = None
-    gasConsumption2022BinnedChart: json = None
+    gasConsumption2023BinnedChart: json = None
     gasDailyChart: json = None
     gasRollingChart: json = None
 
@@ -111,9 +111,15 @@ class OctopusData:
             .dropna()
             * gasConversionFactor
         )
-        # Winter 2022, after adjustment to lower flow temp
+        # Winter 2022, after adjustment to lower flow temp in January
         gasConsumption2022 = (
-            hourly.where((hourly.index > "01-1-2022") & (hourly > 0.1))
+            hourly.where((hourly.index > "30-09-2021") & (hourly.index < "01-10-2022") & (hourly > 0.1))
+            .sort_values(ascending=False)
+            .dropna()
+            * gasConversionFactor
+        )
+        gasConsumption2023 = (
+            hourly.where((hourly.index > "30-09-2022") & (hourly.index < "01-10-2023") & (hourly > 0.1))
             .sort_values(ascending=False)
             .dropna()
             * gasConversionFactor
@@ -124,6 +130,9 @@ class OctopusData:
         )
         self.gasConsumption2022BinnedChart = histogramPlot(
             gasConsumption2022, "Gas Consumption 2022"
+        )
+        self.gasConsumption2023BinnedChart = histogramPlot(
+            gasConsumption2023, "Gas Consumption 2023"
         )
 
         self.gasDailyChart = linePlot(gasConsumptionDaily, "Gas Consumption Daily")

@@ -2,6 +2,24 @@
 
 Octopus Energy Monitor using python fastapi javascript html css nginx
 
+## Running in development
+
+Needs a web server on the same port as 'origins' list in `main.py`
+e.g. `python -m http.server 3000` from the static subdirectory
+then run the server with `uvicorn main:app --reload`
+
+The documentation for FastAPI endpoints can be read in the browser `http://localhost:8000/docs`
+
+## Issues
+
+On a mac, possibly other systems too, `main.js` is no reloaded automatically on changes (might be an issue with the python server) I had to use curl to request the main.js file.
+
+```sh
+curl http://localhost:3000/main.js
+```
+
+# run this server with: uvicorn main:app --reload
+
 ## Current issues
 
 gunicorn doesn't start automatically (proably needs something else to start first?)

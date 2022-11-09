@@ -1,3 +1,4 @@
+"""A FastAPI based webserver for Octopus Energy data, consumer focused"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
@@ -8,11 +9,9 @@ app = FastAPI()
 
 origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
-# run this server with:
-# uvicorn main:app --reload
-# assumes a suitable web server, e.g. "python -m http.server 3000"
-# the web server will be running on port 3000, which needs to match the 'origins' list above
-
+# Needs a web server on the same port as 'origins' list,
+# e.g. "python -m http.server 3000" from the static directory
+# run this server with: uvicorn main:app --reload
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,30 +41,30 @@ def starttimes():
     now = pd.Timestamp.now(tz="UTC")
     today = octopusData.agile_tariff[octopusData.agile_tariff.index >= now]
 
-    def applicanceData(usagePattern, title):
-        startTime = (
+    def applicance_data(usagePattern, title):
+        start_time = (
             today["value_inc_vat"]
             .rolling(len(usagePattern))
             .apply(lambda x: np.multiply(x, usagePattern).sum())
         )
 
-        start = startTime.idxmin()
+        start = start_time.idxmin()
         end = start + pd.Timedelta("30 m") * len(usagePattern)
-        cost = startTime.min()
-        plot = linePlot(startTime, title)
+        cost = start_time.min()
+        plot = linePlot(start_time, title)
 
-        appData = {
+        app_data = {
             "start": start,
             "end": end,
             "cost": cost,
             "plot": plot,
         }
 
-        return appData
+        return app_data
 
     # order must match time order of series. latest to earliest, for instance
     washing_machine = [0.2, 0.2, 0.2, 0.2, 0.2, 1, 1]
-    washing_machine_data = applicanceData(
+    washing_machine_data = applicance_data(
         washing_machine, "Start Times Washing Machine"
     )
 
@@ -74,22 +73,22 @@ def starttimes():
         / (60 * 60)  # temperature difference. J/g/°C
         / (0.8)  # seconds. This gives kWh
     )  # efficiency
-    unitCost = 2.74 / 100
+    unit_cost = 2.74 / 100
 
     # 0.9 kwH over 2:44. But actually 1/2 in the first 1/2 hour, delayed by 20min, 1/2 1 hour later.
     # order must match time order of series. latest to earliest, for instance
     gentle_dishwasher = [0.4, 0, 0.5]
-    gentle_dishwasher_data = applicanceData(
+    gentle_dishwasher_data = applicance_data(
         gentle_dishwasher, "Start Times Gentle Dishwasher"
     )
 
     # 0.75 kWh over 3:58
     eco_dishwasher = [0.05, 0.05, 0.05, 0.05, 0.15, 0.15, 0.15, 0.1]
-    eco_dishwasher_data = applicanceData(eco_dishwasher, "Start Times Eco Dishwasher")
+    eco_dishwasher_data = applicance_data(eco_dishwasher, "Start Times Eco Dishwasher")
 
     # 1.35 kWh over 3.11 hours
     intense_dishwasher = [0.05, 0.1, 0.1, 0.1, 0.1, 0.5, 0.4]
-    intense_dishwasher_data = applicanceData(
+    intense_dishwasher_data = applicance_data(
         intense_dishwasher, "Start Times Intense Dishwasher"
     )
 
@@ -117,6 +116,7 @@ def consumption():
     data = {
         "gasConsumptionBinnedChart": octopusData.gasConsumptionBinnedChart,
         "gasConsumption2022BinnedChart": octopusData.gasConsumption2022BinnedChart,
+        "gasConsumption2023BinnedChart": octopusData.gasConsumption2023BinnedChart,
         "electricityDailyChart": octopusData.electricityDailyChart,
         "electricityRollingChart": octopusData.electricityRollingChart,
         "gasDailyChart": octopusData.gasDailyChart,
