@@ -125,7 +125,7 @@ class OctopusEnergy(object):
         ELECTRIC = auto()
         GAS = auto()
 
-    def getAgileTarriffRates(
+    def get_agile_tarriff_rates(
         self, current_agile_rates=pd.DataFrame([]), page_size=1500
     ):
         response = self.agile_tariff_unit_rates(page_size=page_size)
@@ -134,7 +134,7 @@ class OctopusEnergy(object):
         dti = pd.DatetimeIndex(dt)
         results_reindex = results.set_index(dti).drop("valid_from", axis=1)
         # agile_tariff["valid_from"] = pd.to_datetime(agile_tariff["valid_from"]) # to date only .apply(lambda a: pd.to_datetime(a).date()) # for excel
-        results_reindex.loc[:, "valid_to"] = pd.to_datetime(results_reindex["valid_to"])
+        results_reindex["valid_to"] = pd.to_datetime(results_reindex["valid_to"])
 
         agile_tariff = pd.concat([results_reindex, current_agile_rates])
 
@@ -221,11 +221,11 @@ class OctopusEnergy(object):
 
             return new_consumption
 
-        newerConsumption = additionalConsuption(original_max, now)
-        olderConsumption = additionalConsuption(octopus_join_datetime, original_min)
+        newer_consumption = additionalConsuption(original_max, now)
+        older_consumption = additionalConsuption(octopus_join_datetime, original_min)
 
         new_consumption = pd.concat(
-            [olderConsumption, original_consumption, newerConsumption]
+            [older_consumption, original_consumption, newer_consumption]
         )
 
         return new_consumption.dropna().drop_duplicates().sort_index()

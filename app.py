@@ -1,4 +1,5 @@
 import pickle
+import datetime
 import configparser as cp
 import pandas as pd
 import json
@@ -55,17 +56,17 @@ class OctopusData:
         # https://stackoverflow.com/questions/68625748/attributeerror-cant-get-attribute-new-block-on-module-pandas-core-internal
         try:
             self.agile_tariff = pickle.load(open("agile_tariff.p", "rb"))
-        except AttributeError:
-            self.agile_tariff = client.getAgileTarriffRates()
+        except (AttributeError, FileNotFoundError):
+            self.agile_tariff = client.get_agile_tarriff_rates()
         try:
             self.e_consumption = pickle.load(open("e_consumption.p", "rb"))
-        except AttributeError:
+        except (AttributeError, FileNotFoundError):
             self.e_consumption = client.consumption(
                 OctopusEnergy.FuelType.ELECTRIC, page_size=25000
             )
         try:
             self.g_consumption = pickle.load(open("g_consumption.p", "rb"))
-        except AttributeError:
+        except (AttributeError, FileNotFoundError):
             self.g_consumption = client.consumption(
                 OctopusEnergy.FuelType.GAS, page_size=25000
             )
@@ -76,17 +77,26 @@ class OctopusData:
         self.g_consumption = client.update_consumption(
             OctopusEnergy.FuelType.GAS, self.g_consumption
         )
-        self.agile_tariff = client.getAgileTarriffRates(self.agile_tariff)
+        self.agile_tariff = client.get_agile_tarriff_rates(self.agile_tariff)
 
         self.missing_gas = OctopusEnergy.missing(self.g_consumption)
         self.missing_electric = OctopusEnergy.missing(self.e_consumption)
         self.electricityCharts()
         self.gasCharts()
 
+        pickle.dump(self.agile_tariff, open("agile_tariff.p", "wb"))
+        pickle.dump(self.e_consumption, open("e_consumption.p", "wb"))
+        pickle.dump(self.g_consumption, open("g_consumption.p", "wb"))
+
     def electricityCharts(self):
-        electricityConsumptionDaily = self.e_consumption.resample("D").sum()
+        electricityConsumptionDaily = self.e_consumption.resample("D").sum(
+            numeric_only=True
+        )
         electricityConsumptionRolling = (
-            self.e_consumption["consumption"].sort_index().rolling(24 * 2 * 10).sum()
+            self.e_consumption["consumption"]
+            .sort_index()
+            .rolling(24 * 2 * 10)
+            .sum(numeric_only=True)
         )
         self.electricityDailyChart = linePlot(
             electricityConsumptionDaily, "Electricity Consumption Daily"
@@ -97,29 +107,40 @@ class OctopusData:
         )
 
     def gasCharts(self):
-        gasConsumptionDaily = self.g_consumption.resample("D").sum()
+        gasConsumptionDaily = self.g_consumption.resample("D").sum(numeric_only=True)
         gasConsumptionRolling = (
-            self.g_consumption["consumption"].sort_index().rolling(24 * 2 * 10).sum()
+            self.g_consumption["consumption"]
+            .sort_index()
+            .rolling(24 * 2 * 10)
+            .sum(numeric_only=True)
         )
         # Volume correction * Calorific Value / convert from joules
         gasConversionFactor = 1.02264 * 39.1 / 3.6
         # consumption * gasConversionFactor = kWh
-        hourly = octopusData.g_consumption["consumption"].resample("H").sum()
+        hourly = (
+            octopusData.g_consumption["consumption"]
+            .resample("H")
+            .sum(numeric_only=True)
+        )
         gasConsumption = (
-            hourly.where((hourly.index < "01-1-2022") & (hourly > 0.1))
+            hourly.where((hourly.index < "2021-01-01") & (hourly > 0.1))
             .sort_values(ascending=False)
             .dropna()
             * gasConversionFactor
         )
         # Winter 2022, after adjustment to lower flow temp in January
         gasConsumption2022 = (
-            hourly.where((hourly.index > "30-09-2021") & (hourly.index < "01-10-2022") & (hourly > 0.1))
+            hourly.where((hourly.index > "2021-09-30") & (hourly > 0.1))
             .sort_values(ascending=False)
             .dropna()
             * gasConversionFactor
         )
         gasConsumption2023 = (
-            hourly.where((hourly.index > "30-09-2022") & (hourly.index < "01-10-2023") & (hourly > 0.1))
+            hourly.where(
+                (hourly.index > "2022-09-30")
+                & (hourly.index < "2023-10-01")
+                & (hourly > 0.1)
+            )
             .sort_values(ascending=False)
             .dropna()
             * gasConversionFactor
