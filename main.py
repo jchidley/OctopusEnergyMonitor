@@ -1,17 +1,21 @@
-"""A FastAPI based webserver for Octopus Energy data, consumer focused"""
+"""A FastAPI based webserver for Octopus Energy data, consumer focused
+
+Needs a web server on the same port as 'origins' list e.g.
+python -m http.server 3000
+from the static directory run this server with: 
+uvicorn main:app --reload
+"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import numpy as np
-from app import octopusData, client, linePlot
+from app import octopusData, client, line_plot
+import octopus_2
 
 app = FastAPI()
 
 origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
-# Needs a web server on the same port as 'origins' list,
-# e.g. "python -m http.server 3000" from the static directory
-# run this server with: uvicorn main:app --reload
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,8 +32,8 @@ async def root():
     data = {
         "missing_electric": len(octopusData.missing_electric),
         "missing_gas": len(octopusData.missing_gas),
-        "recent_gas": octopusData.g_consumption.index.max().isoformat(),
-        "recent_electric": octopusData.e_consumption.index.max().isoformat(),
+        "recent_gas": octopusData.gas_consumption.index.max().isoformat(),
+        "recent_electric": octopusData.electricity_consumption.index.max().isoformat(),
     }
     return data
 
@@ -51,7 +55,7 @@ def starttimes():
         start = start_time.idxmin()
         end = start + pd.Timedelta("30 m") * len(usagePattern)
         cost = start_time.min()
-        plot = linePlot(start_time, title)
+        plot = line_plot(start_time, title)
 
         app_data = {
             "start": start,
@@ -68,12 +72,12 @@ def starttimes():
         washing_machine, "Start Times Washing Machine"
     )
 
-    washing_up = (
-        (4.18 * 8 * 2 * 30)  # 8 litres per bowl, 2 bowls
-        / (60 * 60)  # temperature difference. J/g/°C
-        / (0.8)  # seconds. This gives kWh
-    )  # efficiency
-    unit_cost = 2.74 / 100
+    # washing_up = (
+    #     (4.18 * 8 * 2 * 30)  # 8 litres per bowl, 2 bowls
+    #     / (60 * 60)  # temperature difference. J/g/°C
+    #     / (0.8)  # seconds. This gives kWh
+    # )  # efficiency
+    # unit_cost = 2.74 / 100
 
     # 0.9 kwH over 2:44. But actually 1/2 in the first 1/2 hour, delayed by 20min, 1/2 1 hour later.
     # order must match time order of series. latest to earliest, for instance
@@ -114,12 +118,12 @@ def consumption():
     octopusData.update(client)
 
     data = {
-        "gasConsumptionBinnedChart": octopusData.gasConsumptionBinnedChart,
-        "gasConsumption2022BinnedChart": octopusData.gasConsumption2022BinnedChart,
-        "gasConsumption2023BinnedChart": octopusData.gasConsumption2023BinnedChart,
-        "electricityDailyChart": octopusData.electricityDailyChart,
-        "electricityRollingChart": octopusData.electricityRollingChart,
-        "gasDailyChart": octopusData.gasDailyChart,
-        "gasRollingChart": octopusData.gasRollingChart,
+        "gasConsumptionBinnedChart": octopusData.gas_consumption_binned_chart,
+        "gasConsumption2022BinnedChart": octopusData.gas_consumption_2022_binned_chart,
+        "gasConsumption2023BinnedChart": octopusData.gas_consumption_2023_binned_chart,
+        "electricityDailyChart": octopusData.electricity_daily_chart,
+        "electricityRollingChart": octopusData.electricity_rolling_chart,
+        "gasDailyChart": octopusData.gas_daily_chart,
+        "gasRollingChart": octopusData.gas_rolling_chart,
     }
     return data

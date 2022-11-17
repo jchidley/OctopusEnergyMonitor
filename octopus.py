@@ -1,12 +1,17 @@
 # Modified from
 # https://gist.github.com/codeinthehole/5f274f46b5798f435e6984397f1abb64
 # Requires the requests library (install with 'pip install requests')
-import requests
-import pandas as pd
+# https://developer.octopus.energy/docs/api/
+# https://json-schema.org/learn/miscellaneous-examples.html
+
 from enum import Enum, auto
+import pandas as pd
+import requests
 
 
 class OctopusEnergy(object):
+    """Get data from Octopus Energy using API credentials"""
+
     BASE_URL = "https://api.octopus.energy/v1"
 
     class DataUnavailable(Exception):
@@ -106,28 +111,31 @@ class OctopusEnergy(object):
         )
 
     def electricity_meter_consumption(self, **params):
+        """Get electricity consumption data"""
         # See https://developer.octopus.energy/docs/api/#list-consumption-for-a-meter
         return self._get(
-            "/electricity-meter-points/%s/meters/%s/consumption/"
-            % (self.cfg["octopus"]["mpan"], self.cfg["octopus"]["e_serial"]),
+            f"/electricity-meter-points/{ (self.cfg['octopus']['mpan']) }/meters/{ self.cfg['octopus']['e_serial'] }/consumption/",
             params=params,
         )
 
     def gas_meter_consumption(self, **params):
+        """Get gas consumption data"""
         # See https://developer.octopus.energy/docs/api/#list-consumption-for-a-meter
         return self._get(
-            "/gas-meter-points/%s/meters/%s/consumption/"
-            % (self.cfg["octopus"]["mprn"], self.cfg["octopus"]["g_serial"]),
+            f"/gas-meter-points/{ self.cfg['octopus']['mprn'] }/meters/{ self.cfg['octopus']['g_serial'] }/consumption/",
             params=params,
         )
 
     class FuelType(Enum):
+        """Enumeration of fuel types"""
+
         ELECTRIC = auto()
         GAS = auto()
 
     def get_agile_tarriff_rates(
         self, current_agile_rates=pd.DataFrame([]), page_size=1500
     ):
+        """Get agile tarrif rates"""
         response = self.agile_tariff_unit_rates(page_size=page_size)
         results = pd.DataFrame(response["results"])
         dt = pd.to_datetime(results["valid_from"], utc=True)
@@ -141,6 +149,7 @@ class OctopusEnergy(object):
         return agile_tariff.dropna().drop_duplicates()
 
     def missing(consumption):
+        """Apparently this needs a self, but I haven't figured it out yet"""
 
         first = consumption.index.min()
         last = consumption.index.max()
@@ -165,8 +174,12 @@ class OctopusEnergy(object):
 
         if fuel == self.FuelType.ELECTRIC:
             # https://treyhunner.com/2018/10/asterisks-in-python-what-they-are-and-how-to-use-them/
-            # When calling a function, the * operator can be used to unpack an iterable into the arguments in the function call:
-            # The ** operator does something similar, but with keyword arguments. The ** operator allows us to take a dictionary of key-value pairs and unpack it into keyword arguments in a function call.
+            # When calling a function, the * operator can be used to unpack an
+            # iterable into the arguments in the function call:
+            # The ** operator does something similar, but with keyword
+            # arguments. The ** operator allows us to take a dictionary of
+            # key-value pairs and unpack it into keyword arguments in a
+            # function call.
             response = self.electricity_meter_consumption(**params)
 
         if fuel is self.FuelType.GAS:
@@ -181,7 +194,9 @@ class OctopusEnergy(object):
         self, fuel=FuelType.ELECTRIC, original_consumption=pd.DataFrame([])
     ):
         """
-        Assume that there is a single contiguous block of readings (with some missing). Build upwards from that before starting to build downwards. If there is not data, get some first.
+        Assume that there is a single contiguous block of readings (with some
+        missing). Build upwards from that before starting to build downwards.
+        If there is not data, get some first.
         """
 
         max_page_size = int(self.cfg["octopus"]["CONSUMPTION_PAGE_SIZE"])
@@ -196,8 +211,11 @@ class OctopusEnergy(object):
         original_max = original_consumption.index.max()
         original_min = original_consumption.index.min()
 
-        def additionalConsuption(min_time, max_time):
-
+        def additional_consuption(min_time, max_time):
+            """
+            Working from an initial data set, add extra consumption before and
+            after the current time series data
+            """
             new_consumption = pd.DataFrame([])
 
             previous_min = max_time
@@ -221,8 +239,8 @@ class OctopusEnergy(object):
 
             return new_consumption
 
-        newer_consumption = additionalConsuption(original_max, now)
-        older_consumption = additionalConsuption(octopus_join_datetime, original_min)
+        newer_consumption = additional_consuption(original_max, now)
+        older_consumption = additional_consuption(octopus_join_datetime, original_min)
 
         new_consumption = pd.concat(
             [older_consumption, original_consumption, newer_consumption]
@@ -230,14 +248,15 @@ class OctopusEnergy(object):
 
         return new_consumption.dropna().drop_duplicates().sort_index()
 
-    def gasCost(g_consumption, start_date, end_date):
+    def gas_cost(g_consumption, start_date, end_date):
         selection = g_consumption[
             (g_consumption.index > start_date) & (g_consumption.index < end_date)
         ]
         # print(f"{selection.head(2)}\n{selection.tail(2)}")
         c = selection["consumption"].sum()
+        # pylint: disable=invalid-name
         kWh = (c * 1.02265 * 39.3) / 3.6
-        standingCharge = 18.7 / 100
-        unitCost = 2.74 / 100
-        cost = 30 * standingCharge + kWh * unitCost
+        standing_charge = 18.7 / 100
+        unit_cost = 2.74 / 100
+        cost = 30 * standing_charge + kWh * unit_cost
         print(f"{c:.1f} kWh \t£{cost * 1.05:.2f}")

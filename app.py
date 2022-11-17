@@ -1,38 +1,38 @@
-import pickle
-import datetime
-import configparser as cp
-import pandas as pd
+"""The app"""
 import json
+import configparser as cp
+from os.path import exists
+from dataclasses import dataclass
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 import plotly
 import plotly.express as px
-
-# needs to come after the px import otherwise we get a Nonetype error with the px import
+import pandas as pd
 from octopus import OctopusEnergy
-from dataclasses import dataclass
+import octopus_2
 
 
-def linePlot(plotData, plotTitle):
+def line_plot(plot_data, plot_title):
     """
-    We are building a plotly chart here, using python, from python data. This plotly object is JSON encoded and then rehyrated at the front end.
-    An alternative would be to send the raw data to the front end (probaby still JSON encoded) and build the chart there, using a suitalbe package.
+    We are building a plotly chart here, using python, from python data. This
+    plotly object is JSON encoded and then rehyrated at the front end.
+    An alternative would be to send the raw data to the front end (probaby
+    still JSON encoded) and build the chart there, using a suitalbe package.
     """
     fig = px.line(
-        plotData,
-        range_y=[0, plotData.max() * 1.1],
-    ).update_layout(showlegend=False, title=plotTitle)
-    jsonPlot = plotly.io.to_json(fig)
-    # an alternative way of encoding.
-    # jsonPlot = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
-    # To use a custom JSONEncoder subclass (e.g. one that overrides the default() method to serialize additional types), specify it with the cls kwarg; otherwise JSONEncoder is used.
-    return jsonPlot
+        plot_data,
+        range_y=[0, plot_data.max() * 1.1],
+    ).update_layout(showlegend=False, title=plot_title)
+    json_plot = plotly.io.to_json(fig)
+    return json_plot
 
 
-def histogramPlot(plotData, plotTitle):
+def histogram_plot(plotData, plotTitle):
     fig = px.histogram(
         plotData, x="consumption", nbins=40, range_x=[0, 20]
     ).update_layout(showlegend=False, title=plotTitle)
-    jsonPlot = plotly.io.to_json(fig)
-    return jsonPlot
+    json_plot = plotly.io.to_json(fig)
+    return json_plot
 
 
 @dataclass
@@ -40,130 +40,139 @@ class OctopusData:
     """Class for keeping track of an item in inventory."""
 
     agile_tariff: pd.DataFrame = pd.DataFrame()
-    e_consumption: pd.DataFrame = pd.DataFrame()
-    g_consumption: pd.DataFrame = pd.DataFrame()
+    electricity_consumption: pd.DataFrame = pd.DataFrame()
+    gas_consumption: pd.DataFrame = pd.DataFrame()
     missing_gas: pd.DataFrame = pd.DataFrame()
     missing_electric: pd.DataFrame = pd.DataFrame()
-    electricityDailyChart: json = None
-    electricityRollingChart: json = None
-    gasConsumption2022BinnedChart: json = None
-    gasConsumption2023BinnedChart: json = None
-    gasDailyChart: json = None
-    gasRollingChart: json = None
+    electricity_daily_chart: json = None
+    electricity_rolling_chart: json = None
+    gas_consumption_binned_chart: json = None
+    gas_consumption_2022_binned_chart: json = None
+    gas_consumption_2023_binned_chart: json = None
+    gas_daily_chart: json = None
+    gas_rolling_chart: json = None
 
-    def update(self, client):
+    def update(self, octopus_client):
         # error loading because...
         # https://stackoverflow.com/questions/68625748/attributeerror-cant-get-attribute-new-block-on-module-pandas-core-internal
-        try:
-            self.agile_tariff = pickle.load(open("agile_tariff.p", "rb"))
-        except (AttributeError, FileNotFoundError):
-            self.agile_tariff = client.get_agile_tarriff_rates()
-        try:
-            self.e_consumption = pickle.load(open("e_consumption.p", "rb"))
-        except (AttributeError, FileNotFoundError):
-            self.e_consumption = client.consumption(
+
+        if exists("./agile_tariff.parquet"):
+            self.agile_tariff = pd.read_parquet("./agile_tariff.parquet")
+        else:
+            self.agile_tariff = octopus_client.get_agile_tarriff_rates()
+        if exists("./e_consumption.parquet"):
+            self.electricity_consumption = pd.read_parquet("./e_consumption.parquet")
+        else:
+            self.electricity_consumption = octopus_client.consumption(
                 OctopusEnergy.FuelType.ELECTRIC, page_size=25000
             )
-        try:
-            self.g_consumption = pickle.load(open("g_consumption.p", "rb"))
-        except (AttributeError, FileNotFoundError):
-            self.g_consumption = client.consumption(
+        if exists("./g_consumption.parquet"):
+            self.gas_consumption = pd.read_parquet("./g_consumption.parquet")
+        else:
+            self.gas_consumption = octopus_client.consumption(
                 OctopusEnergy.FuelType.GAS, page_size=25000
             )
 
-        self.e_consumption = client.update_consumption(
-            OctopusEnergy.FuelType.ELECTRIC, self.e_consumption
+        self.agile_tariff = octopus_client.get_agile_tarriff_rates(self.agile_tariff)
+        self.electricity_consumption = octopus_client.update_consumption(
+            OctopusEnergy.FuelType.ELECTRIC, self.electricity_consumption
         )
-        self.g_consumption = client.update_consumption(
-            OctopusEnergy.FuelType.GAS, self.g_consumption
+        self.gas_consumption = octopus_client.update_consumption(
+            OctopusEnergy.FuelType.GAS, self.gas_consumption
         )
-        self.agile_tariff = client.get_agile_tarriff_rates(self.agile_tariff)
 
-        self.missing_gas = OctopusEnergy.missing(self.g_consumption)
-        self.missing_electric = OctopusEnergy.missing(self.e_consumption)
-        self.electricityCharts()
-        self.gasCharts()
+        self.missing_gas = OctopusEnergy.missing(self.gas_consumption)
+        self.missing_electric = OctopusEnergy.missing(self.electricity_consumption)
+        self.electricity_charts()
+        self.gas_charts()
 
-        pickle.dump(self.agile_tariff, open("agile_tariff.p", "wb"))
-        pickle.dump(self.e_consumption, open("e_consumption.p", "wb"))
-        pickle.dump(self.g_consumption, open("g_consumption.p", "wb"))
+        self.agile_tariff.to_parquet("./agile_tariff.parquet")
+        self.electricity_consumption.to_parquet("./e_consumption.parquet")
+        self.gas_consumption.to_parquet("./g_consumption.parquet")
 
-    def electricityCharts(self):
-        electricityConsumptionDaily = self.e_consumption.resample("D").sum(
+    def electricity_charts(self):
+        """A series of electricity charts based on consumption data"""
+        electricity_consumption_daily = self.electricity_consumption.resample("D").sum(
             numeric_only=True
         )
-        electricityConsumptionRolling = (
-            self.e_consumption["consumption"]
+        electricity_consumption_rolling = (
+            self.electricity_consumption["consumption"]
             .sort_index()
             .rolling(24 * 2 * 10)
             .sum(numeric_only=True)
         )
-        self.electricityDailyChart = linePlot(
-            electricityConsumptionDaily, "Electricity Consumption Daily"
+        self.electricity_daily_chart = line_plot(
+            electricity_consumption_daily, "Electricity Consumption Daily"
         )
 
-        self.electricityRollingChart = linePlot(
-            electricityConsumptionRolling, "Electricity Consumption Rolling"
+        self.electricity_rolling_chart = line_plot(
+            electricity_consumption_rolling, "Electricity Consumption Rolling"
         )
 
-    def gasCharts(self):
-        gasConsumptionDaily = self.g_consumption.resample("D").sum(numeric_only=True)
-        gasConsumptionRolling = (
-            self.g_consumption["consumption"]
+    def gas_charts(self):
+        """A series of gas charts based on consumption data"""
+        gas_consumption_daily = self.gas_consumption.resample("D").sum(
+            numeric_only=True
+        )
+        gas_consumption_rolling = (
+            self.gas_consumption["consumption"]
             .sort_index()
             .rolling(24 * 2 * 10)
             .sum(numeric_only=True)
         )
         # Volume correction * Calorific Value / convert from joules
-        gasConversionFactor = 1.02264 * 39.1 / 3.6
+        gas_conversion_factor = 1.02264 * 39.1 / 3.6
         # consumption * gasConversionFactor = kWh
         hourly = (
-            octopusData.g_consumption["consumption"]
+            octopusData.gas_consumption["consumption"]
             .resample("H")
             .sum(numeric_only=True)
         )
-        gasConsumption = (
+        gas_consumption = (
             hourly.where((hourly.index < "2021-01-01") & (hourly > 0.1))
             .sort_values(ascending=False)
             .dropna()
-            * gasConversionFactor
+            * gas_conversion_factor
         )
+        now = datetime.now()
+        last_year = now + relativedelta(years=-1)
         # Winter 2022, after adjustment to lower flow temp in January
-        gasConsumption2022 = (
-            hourly.where((hourly.index > "2021-09-30") & (hourly > 0.1))
-            .sort_values(ascending=False)
-            .dropna()
-            * gasConversionFactor
-        )
-        gasConsumption2023 = (
+        gas_consumption_2022 = (
             hourly.where(
-                (hourly.index > "2022-09-30")
-                & (hourly.index < "2023-10-01")
+                (hourly.index > "2021-09-30")
+                & (hourly.index < last_year.isoformat())
                 & (hourly > 0.1)
             )
             .sort_values(ascending=False)
             .dropna()
-            * gasConversionFactor
+            * gas_conversion_factor
+        )
+        gas_consumption_2023 = (
+            hourly.where(
+                (hourly.index > "2022-09-30")
+                & (hourly.index < now.isoformat())
+                & (hourly > 0.1)
+            )
+            .sort_values(ascending=False)
+            .dropna()
+            * gas_conversion_factor
         )
 
-        self.gasConsumptionBinnedChart = histogramPlot(
-            gasConsumption, "Gas Consumption"
+        self.gas_consumption_binned_chart = histogram_plot(
+            gas_consumption, "Gas Consumption"
         )
-        self.gasConsumption2022BinnedChart = histogramPlot(
-            gasConsumption2022, "Gas Consumption 2022"
+        self.gas_consumption_2022_binned_chart = histogram_plot(
+            gas_consumption_2022, "Gas Consumption 2022"
         )
-        self.gasConsumption2023BinnedChart = histogramPlot(
-            gasConsumption2023, "Gas Consumption 2023"
-        )
-
-        self.gasDailyChart = linePlot(gasConsumptionDaily, "Gas Consumption Daily")
-        self.gasRollingChart = linePlot(
-            gasConsumptionRolling, "Gas Consumption Rolling"
+        self.gas_consumption_2023_binned_chart = histogram_plot(
+            gas_consumption_2023, "Gas Consumption 2023"
         )
 
+        self.gas_daily_chart = line_plot(gas_consumption_daily, "Gas Consumption Daily")
+        self.gas_rolling_chart = line_plot(
+            gas_consumption_rolling, "Gas Consumption Rolling"
+        )
 
-# change to use TOML as this will be part of the standard lib in 3.11
-# can use 'tomli' library in the meantime ('tomllib' will be based on this)
 
 cfg = cp.ConfigParser()
 cfg.read_file(open("config.ini"))
