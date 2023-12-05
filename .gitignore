@@ -1,5 +1,5 @@
-# config.ini
-config.ini
+# config.yml
+config.yml
 
 # Python pickle objects
 *.p
