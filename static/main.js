@@ -117,5 +117,9 @@ function consumption() {
                 "gasConsumption2023BinnedChart",
                 data.gasConsumption2023BinnedChart
             );
+            plotme(
+                "gasConsumption2024BinnedChart",
+                data.gasConsumption2024BinnedChart
+            );
         });
 }

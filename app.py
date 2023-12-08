@@ -2,14 +2,13 @@
 import json
 import configparser as cp
 from os.path import exists
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import plotly
 import plotly.express as px
 import pandas as pd
 from octopus import OctopusEnergy
-import octopus_2
 
 
 def line_plot(plot_data, plot_title):
@@ -39,16 +38,17 @@ def histogram_plot(plotData, plotTitle):
 class OctopusData:
     """Class for keeping track of an item in inventory."""
 
-    agile_tariff: pd.DataFrame = pd.DataFrame()
-    electricity_consumption: pd.DataFrame = pd.DataFrame()
-    gas_consumption: pd.DataFrame = pd.DataFrame()
-    missing_gas: pd.DataFrame = pd.DataFrame()
-    missing_electric: pd.DataFrame = pd.DataFrame()
+    agile_tariff: pd.DataFrame = field(default_factory=pd.DataFrame)
+    electricity_consumption: pd.DataFrame = field(default_factory=pd.DataFrame)
+    gas_consumption: pd.DataFrame = field(default_factory=pd.DataFrame)
+    missing_gas: pd.DataFrame = field(default_factory=pd.DataFrame)
+    missing_electric: pd.DataFrame = field(default_factory=pd.DataFrame)
     electricity_daily_chart: json = None
     electricity_rolling_chart: json = None
     gas_consumption_binned_chart: json = None
     gas_consumption_2022_binned_chart: json = None
     gas_consumption_2023_binned_chart: json = None
+    gas_consumption_2024_binned_chart: json = None
     gas_daily_chart: json = None
     gas_rolling_chart: json = None
 
@@ -117,7 +117,7 @@ class OctopusData:
         gas_consumption_rolling = (
             self.gas_consumption["consumption"]
             .sort_index()
-            .rolling(24 * 2 * 10)
+            .rolling(24 * 2 * 30)
             .sum(numeric_only=True)
         )
         # Volume correction * Calorific Value / convert from joules
@@ -140,7 +140,7 @@ class OctopusData:
         gas_consumption_2022 = (
             hourly.where(
                 (hourly.index > "2021-09-30")
-                & (hourly.index < last_year.isoformat())
+                & (hourly.index < "2022-10-01")
                 & (hourly > 0.1)
             )
             .sort_values(ascending=False)
@@ -150,6 +150,16 @@ class OctopusData:
         gas_consumption_2023 = (
             hourly.where(
                 (hourly.index > "2022-09-30")
+                & (hourly.index < "2023-10-01")
+                & (hourly > 0.1)
+            )
+            .sort_values(ascending=False)
+            .dropna()
+            * gas_conversion_factor
+        )
+        gas_consumption_2024 = (
+            hourly.where(
+                (hourly.index > "2023-09-30")
                 & (hourly.index < now.isoformat())
                 & (hourly > 0.1)
             )
@@ -166,6 +176,9 @@ class OctopusData:
         )
         self.gas_consumption_2023_binned_chart = histogram_plot(
             gas_consumption_2023, "Gas Consumption 2023"
+        )
+        self.gas_consumption_2024_binned_chart = histogram_plot(
+            gas_consumption_2024, "Gas Consumption 2024"
         )
 
         self.gas_daily_chart = line_plot(gas_consumption_daily, "Gas Consumption Daily")

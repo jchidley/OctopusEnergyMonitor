@@ -10,7 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import numpy as np
 from app import octopusData, client, line_plot
-import octopus_2
 
 app = FastAPI()
 
@@ -121,6 +120,7 @@ def consumption():
         "gasConsumptionBinnedChart": octopusData.gas_consumption_binned_chart,
         "gasConsumption2022BinnedChart": octopusData.gas_consumption_2022_binned_chart,
         "gasConsumption2023BinnedChart": octopusData.gas_consumption_2023_binned_chart,
+        "gasConsumption2024BinnedChart": octopusData.gas_consumption_2024_binned_chart,
         "electricityDailyChart": octopusData.electricity_daily_chart,
         "electricityRollingChart": octopusData.electricity_rolling_chart,
         "gasDailyChart": octopusData.gas_daily_chart,
